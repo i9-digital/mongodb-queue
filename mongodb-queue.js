@@ -42,8 +42,8 @@ function Queue(db, name, opts) {
     this.db = db
     this.name = name
     this.col = db.collection(name)
-    this.visibility = opts.visibility || 30
-    this.delay = opts.delay || 0
+    this.visibility = opts.visibility || 60
+    this.delay = opts.delay || 60
 
     if ( opts.deadQueue ) {
         this.deadQueue = opts.deadQueue
@@ -70,31 +70,17 @@ Queue.prototype.add = function(payload, opts, callback) {
         opts = {}
     }
     var delay = opts.delay || self.delay
-    var visible = delay ? nowPlusSecs(delay) : now()
+    var visible = delay ? nowPlusSecs(delay) : now();
 
-    var msgs = []
-    if (payload instanceof Array) {
-        if (payload.length === 0) {
-            var errMsg = 'Queue.add(): Array payload length must be greater than 0'
-            return callback(new Error(errMsg))
-        }
-        payload.forEach(function(payload) {
-            msgs.push({
-                visible  : visible,
-                payload  : payload,
-            })
-        })
-    } else {
-        msgs.push({
-            visible  : visible,
-            payload  : payload,
-        })
-    }
+    const msg = {
+        visible  : visible,
+        payload  : payload,
+        ack      : id()
+    };
 
-    self.col.insertMany(msgs, function(err, results) {
+    self.col.insertOne(msg, function(err, results) {
         if (err) return callback(err)
-        if (payload instanceof Array) return callback(null, '' + results.insertedIds)
-        callback(null, '' + results.ops[0]._id)
+        callback(null, '' + results.ops[0]._id, msg.ack);
     })
 }
 
@@ -167,7 +153,6 @@ Queue.prototype.ping = function(ack, opts, callback) {
     var visibility = opts.visibility || self.visibility
     var query = {
         ack     : ack,
-        visible : { $gt : now() },
         deleted : null,
     }
     var update = {
@@ -189,7 +174,6 @@ Queue.prototype.ack = function(ack, callback) {
 
     var query = {
         ack     : ack,
-        visible : { $gt : now() },
         deleted : null,
     }
     var update = {
