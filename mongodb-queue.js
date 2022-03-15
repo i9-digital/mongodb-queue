@@ -84,6 +84,31 @@ Queue.prototype.add = function(payload, opts, callback) {
     })
 }
 
+Queue.prototype.addMany = function(payloads, opts, callback) {
+    var self = this
+    if ( !callback ) {
+        callback = opts
+        opts = {}
+    }
+    var delay = opts.delay || self.delay
+    var visible = delay ? nowPlusSecs(delay) : now();
+    const msgs = [];
+
+    payloads.forEach(payload => {
+        msgs.push({
+            visible  : visible,
+            payload  : payload,
+            ack      : id()
+        });
+    });
+
+    self.col.insertMany(msgs, function(err, results) {
+        if (err) return callback(err)
+
+        callback(null, results);
+    });
+}
+
 Queue.prototype.get = function(opts, callback) {
     var self = this
     if ( !callback ) {
@@ -107,7 +132,7 @@ Queue.prototype.get = function(opts, callback) {
         }
     }
 
-    self.col.findOneAndUpdate(query, update, { sort: sort, returnOriginal : false }, function(err, result) {
+    self.col.findOneAndUpdate(query, update, { sort: sort }, function(err, result) {
         if (err) return callback(err)
         var msg = result.value
         if (!msg) return callback()
@@ -160,7 +185,7 @@ Queue.prototype.ping = function(ack, opts, callback) {
             visible : nowPlusSecs(visibility)
         }
     }
-    self.col.findOneAndUpdate(query, update, { returnOriginal : false }, function(err, msg, blah) {
+    self.col.findOneAndUpdate(query, update, {}, function(err, msg, blah) {
         if (err) return callback(err)
         if ( !msg.value ) {
             return callback(new Error("Queue.ping(): Unidentified ack  : " + ack))
@@ -181,7 +206,7 @@ Queue.prototype.ack = function(ack, callback) {
             deleted : now(),
         }
     }
-    self.col.findOneAndUpdate(query, update, { returnOriginal : false }, function(err, msg, blah) {
+    self.col.findOneAndUpdate(query, update, {}, function(err, msg, blah) {
         if (err) return callback(err)
         if ( !msg.value ) {
             return callback(new Error("Queue.ack(): Unidentified ack : " + ack))
