@@ -132,7 +132,7 @@ Queue.prototype.get = function(opts, callback) {
         }
     }
 
-    self.col.findOneAndUpdate(query, update, { sort: sort }, function(err, result) {
+    self.col.findOneAndUpdate(query, update, { sort: sort, returnDocument: 'after' }, function(err, result) {
         if (err) return callback(err)
         var msg = result.value
         if (!msg) return callback()
@@ -185,7 +185,7 @@ Queue.prototype.ping = function(ack, opts, callback) {
             visible : nowPlusSecs(visibility)
         }
     }
-    self.col.findOneAndUpdate(query, update, {}, function(err, msg, blah) {
+    self.col.findOneAndUpdate(query, update, { returnDocument: 'after' }, function(err, msg, blah) {
         if (err) return callback(err)
         if ( !msg.value ) {
             return callback(new Error("Queue.ping(): Unidentified ack  : " + ack))
@@ -206,7 +206,7 @@ Queue.prototype.ack = function(ack, callback) {
             deleted : now(),
         }
     }
-    self.col.findOneAndUpdate(query, update, {}, function(err, msg, blah) {
+    self.col.findOneAndUpdate(query, update, { returnDocument: 'after' }, function(err, msg, blah) {
         if (err) return callback(err)
         if ( !msg.value ) {
             return callback(new Error("Queue.ack(): Unidentified ack : " + ack))
